@@ -28,3 +28,8 @@ export interface IConfig {
     apiUrl: string;
     userEndpoint: string;
 }
+export interface AuthConfig {
+    password: string;
+    cookieName: string;
+    secure: boolean;
+}
