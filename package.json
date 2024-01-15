@@ -1,0 +1,52 @@
+{
+    "name": "celestya",
+    "version": "0.0.1",
+    "description": "Highly opinionated session management tool for NextJS",
+    "main": "./dist/index.js",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "require": "./dist/index.js",
+            "import": "./dist/index.js",
+            "module": "./dist/index.mjs"
+        },
+        "./client": {
+            "types": "./dist/client/index.d.ts",
+            "require": "./dist/client/index.js",
+            "import": "./dist/client/index.js",
+            "module": "./dist/client/index.mjs"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "auth",
+        "session",
+        "client",
+        "server",
+        "api"
+    ],
+    "author": "PhilipJovanovic",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/node": "^20",
+        "@types/react": "^18",
+        "@types/react-dom": "^18",
+        "esbuild-plugin-react18": "^0.0.7",
+        "esbuild-react18-useclient": "^1.0.7",
+        "ts-node": "^10.9.2",
+        "tsup": "^8.0.1",
+        "typescript": "^5.3.3"
+    },
+    "dependencies": {
+        "jwt-decode": "^4.0.0",
+        "next": "^14.0.4",
+        "react": "^18",
+        "react-dom": "^18"
+    }
+}
