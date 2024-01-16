@@ -43,8 +43,6 @@ const getSessionServerside = async <U = User>() => {
         sessionOptions
     );
 
-    console.log("#> getSession(): ", session?.token?.jwt);
-
     return session;
 };
 
