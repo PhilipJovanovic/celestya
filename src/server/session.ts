@@ -1,7 +1,8 @@
 import { SessionOptions } from "iron-session";
-import { IronSessionData, getIronSession } from "iron-session";
+import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { AuthConfig } from "../types";
+import { ServerSideSession } from "../types/internal";
+import { Session } from "../types";
 
 declare module "iron-session" {
     interface IronSessionData<U, T> {
@@ -14,8 +15,8 @@ declare module "iron-session" {
     }
 }
 
-export interface User {
-    username: string;
+export interface DefaultUser {
+    [key: string]: any;
 }
 
 export interface Token {
@@ -23,22 +24,13 @@ export interface Token {
 }
 
 export const sessionOptions: SessionOptions = {
-    password: "PLEASE_SET_PASSWORD", //AUTH_SECRET,
-    cookieName: "PLEASE_SET_CONFIG", // COOKIE_NAME,
-    cookieOptions: { secure: false }, //IS_PROD },
+    password: process.env.CELESTYA_SECRET || "PLEASE_SET_PASSWORD",
+    cookieName: process.env.CELESTYA_COOKIE_NAME || "PLEASE_SET_COOKIE_NAME",
+    cookieOptions: { secure: process.env.SECURE === "true" || false },
 };
 
-export const setConfig = ({ password, cookieName, secure }: AuthConfig) => {
-    sessionOptions.password = password;
-    sessionOptions.cookieName = cookieName;
-
-    if (!sessionOptions.cookieOptions) sessionOptions.cookieOptions = {};
-
-    sessionOptions.cookieOptions.secure = secure;
-};
-
-const getSessionServerside = async <U = User>() => {
-    const session = await getIronSession<IronSessionData<U, Token>>(
+const getSessionServerside = async <U = DefaultUser>() => {
+    const session: Session<U> = await getIronSession<ServerSideSession<U>>(
         cookies(),
         sessionOptions
     );

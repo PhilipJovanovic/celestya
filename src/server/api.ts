@@ -14,9 +14,17 @@ const rHandler: RouteHandler = {
         oauth: ({ request, config }) => oauth(request, config),
         oauth_callback: ({ request, config }) =>
             oauth_callback(request, config),
+        proxy: ({ request, config, options }) =>
+            proxyFunction("GET", request, config, options),
     },
     POST: {
         login: ({ request, config }) => login(request, config),
+        proxy: ({ request, config, options }) =>
+            proxyFunction("POST", request, config, options),
+    },
+    DELETE: {
+        proxy: ({ request, config, options }) =>
+            proxyFunction("DELETE", request, config, options),
     },
 };
 
@@ -30,13 +38,14 @@ export default async function proxy(
         const parameters = {
             request,
             path:
-                options.params.endpoint?.join("/") ||
+                options.params.endpoint[0] ||
                 request.nextUrl.pathname.replace(config.route, ""),
             options: options.params.endpoint,
             config,
         };
 
-        console.log(`[${method}]: ${parameters.path}`);
+        console.log(`[${method}]: /${parameters.path}`);
+
         if (rHandler[method][parameters.path])
             return rHandler[method][parameters.path](parameters);
 
@@ -182,3 +191,32 @@ async function debug() {
 }
 
 // TODO: add refresh logic
+
+async function proxyFunction(
+    method: string,
+    request: NextRequest,
+    config: IConfig,
+    options: string[]
+) {
+    const session = await getSessionServerside();
+
+    const opts: RequestInit = {
+        method,
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + session.token?.jwt,
+        },
+    };
+
+    if (method === "POST") opts.body = JSON.stringify(await request.json());
+
+    options.shift();
+    const response: Response = await fetch(
+        `${config.apiUrl}/${options.join("/")}`,
+        opts
+    );
+
+    const res = await response.json();
+
+    return Response.json(res);
+}

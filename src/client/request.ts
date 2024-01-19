@@ -1,3 +1,18 @@
+export async function gFetch({
+    url,
+    options,
+}: {
+    url: string | URL;
+    options?: object;
+}) {
+    const response: Response = await fetch(url, {
+        method: "GET",
+        ...options,
+    });
+
+    return await response.json();
+}
+
 export async function pFetch({
     url,
     body,
@@ -11,14 +26,10 @@ export async function pFetch({
         body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-
-    if (data.error) throw new Error(data.error);
-
-    return data;
+    return await response.json();
 }
 
-export async function gFetch({
+export async function dFetch({
     url,
     options,
 }: {
@@ -26,13 +37,9 @@ export async function gFetch({
     options?: object;
 }) {
     const response: Response = await fetch(url, {
-        method: "GET",
+        method: "DELETE",
         ...options,
     });
 
-    const data = await response.json();
-
-    if (data.error) throw new Error(data.error);
-
-    return data;
+    return await response.json();
 }

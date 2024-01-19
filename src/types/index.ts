@@ -1,8 +1,7 @@
+import { IronSession } from "iron-session";
 import { NextRequest } from "next/server";
-
-export interface IChildProps {
-    children?: React.ReactNode;
-}
+import { ServerSideSession } from "./internal";
+import { DefaultUser } from "../server/session";
 
 export type Params = string[];
 
@@ -17,6 +16,7 @@ export interface RouteHandler {
                 request: NextRequest;
                 path: string;
                 config: IConfig;
+                options: string[];
             }): Promise<any>;
         };
     };
@@ -28,8 +28,4 @@ export interface IConfig {
     apiUrl: string;
     userEndpoint: string;
 }
-export interface AuthConfig {
-    password: string;
-    cookieName: string;
-    secure: boolean;
-}
+export type Session<U = DefaultUser> = IronSession<ServerSideSession<U>>;

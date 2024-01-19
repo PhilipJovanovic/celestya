@@ -1,6 +1,6 @@
 'use client'
 
-import { IChildProps } from "../types";
+import { IChildProps } from "../types/internal";
 import useAuthContext from "./useAuth";
 
 export type LogoutProps = React.FC<React.ComponentProps<'div'> & IChildProps>

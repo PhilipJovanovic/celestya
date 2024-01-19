@@ -1,8 +1,8 @@
 'use client'
 
 import { createContext, useEffect, useState } from "react";
-import { IAuthContext, IAuthContextOptions, ILoginData, IOAuthData, IRegisterData } from "../types/internal";
-import { gFetch, pFetch } from "./request";
+import { IAuthContext, IAuthContextOptions, ILoginData, IOAuthData, IRegisterData, ResponseType } from "../types/internal";
+import { dFetch, gFetch, pFetch } from "./request";
 
 /*                                                                    +
     Frontend context for providing login, logout, register and refresh
@@ -35,9 +35,12 @@ const AuthContextProvider = <IU,>({
     // GET /session/oauth/API_OAUTH_URL
     const oAuthRoute = routePrefix + '/oauth'
 
-    const login = async (loginData: ILoginData) => {
+    // GET/POST/DELETE /proxy/URL
+    const proxyRoute = routePrefix + '/proxy'
+
+    const login = async (loginData: ILoginData): Promise<string> => {
         try {
-            const data = await pFetch({
+            await pFetch({
                 url: loginRoute,
                 body: loginData.data,
             })
@@ -46,24 +49,24 @@ const AuthContextProvider = <IU,>({
 
             return loginData.redirect || '/'
         } catch (e: any) {
-            return '/login?error=' + encodeURIComponent(e.message)
+            return `${loginData.onErrorUrl || '/'}?error=${e.message}`
         }
     }
 
-    const register = async (registerData: IRegisterData) => {
+    const register = async (registerData: IRegisterData): Promise<string> => {
         try {
             const data = await pFetch({
                 url: registerRoute,
                 body: registerData.data,
             })
 
-            return '/login?_=register&success=Bitte%20best%C3%A4tige%20deine%20E-Mail-Adresse'
+            return `${registerData.redirect || '/'}?success=true`
         } catch (e: any) {
-            return '/login?_=register&error=' + encodeURIComponent(e.message)
+            return `${registerData.onErrorUrl || '/'}?error=${e.message}`
         }
     }
 
-    const oAuth = async ({ state, oAuthUrl }: IOAuthData) => {
+    const oAuth = async ({ state, oAuthUrl, onErrorUrl }: IOAuthData): Promise<string> => {
         try {
             const url = new URL(oAuthRoute, "http://localhost/")
 
@@ -75,19 +78,16 @@ const AuthContextProvider = <IU,>({
 
             return response.data
         } catch (e: any) {
-            console.log(e)
-            return '/login?error=' + encodeURIComponent(e.message)
+            return `${onErrorUrl || '/'}?error=${e.message}`
         }
     }
 
-    const logout = async () => {
+    const logout = async (): Promise<string> => {
         try {
             const data = await gFetch({
                 url: logoutRoute,
                 options: { cache: 'no-store' }
             })
-
-            console.log("Fetch Logout from f-backend:", data)
 
             setIsLoggedIn(false)
             setUser({})
@@ -99,14 +99,12 @@ const AuthContextProvider = <IU,>({
         }
     }
 
-    const refreshUser = async (force?: boolean) => {
+    const refreshUser = async (force?: boolean): Promise<void> => {
         try {
             const data = await gFetch({
                 url: `${userRoute}${force ? '?force=true' : ''}`,
                 options: { cache: 'no-store' }
             })
-
-            console.log("Fetch User from f-backend:", data)
 
             if (!data.error) {
                 setUser(data.data)
@@ -122,33 +120,41 @@ const AuthContextProvider = <IU,>({
         }
     }
 
-    /* const get = async <T, U = any>(url: string): Promise<TRequest<T, U>> => {
+    const get = async <T, U>(url: string): Promise<ResponseType<T, U>> => {
         try {
-            const r = await fetch(`/api/proxy${url}`)
-     
-            const data = await r.json()
-     
-            if (data.error) throw new Error(data.data)
-            return { data: data.data, details: data.details }
-        } catch (e) {
-            return { error: e.message }
+            const r = await gFetch({ url: `${proxyRoute}${url}` })
+
+            return r
+        } catch (e: any) {
+            return { error: "getRequestError", message: e.message }
         }
     }
-     
-    const del = async <T, U = any>(url: string): Promise<TRequest<T, U>> => {
+
+    const post = async <T, U = any>(
+        url: string,
+        body: any,
+    ): Promise<ResponseType<T, U>> => {
         try {
-            const r = await fetch(`/api/proxy${url}`, {
-                method: 'DELETE',
+            const r = await pFetch({
+                url: `${proxyRoute}${url}`,
+                body,
             })
-     
-            const data = await r.json()
-     
-            if (data.error) throw new Error(data.data)
-            return { data: data.data, details: data.details }
-        } catch (e) {
-            return { error: e.message }
+
+            return r
+        } catch (e: any) {
+            return { error: "getRequestError", message: e.message }
         }
-    } */
+    }
+
+    const del = async <T, U>(url: string): Promise<ResponseType<T, U>> => {
+        try {
+            const r = await dFetch({ url: `${proxyRoute}${url}` })
+
+            return r
+        } catch (e: any) {
+            return { error: "getRequestError", message: e.message }
+        }
+    }
 
     /**
      * Can only be used if user is logged in! and already initialised
@@ -214,26 +220,6 @@ const AuthContextProvider = <IU,>({
         } catch (e) {
             console.log('break4', e)
             return { error: e.message || 'upload error' }
-        }
-    }
-     
-    const post = async <T, U = any>(
-        url: string,
-        body: any,
-    ): Promise<TRequest<T, U>> => {
-        try {
-            const r = await fetch(`/api/proxy${url}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            })
-     
-            const data = await r.json()
-     
-            if (data.error) throw new Error(data.data)
-            return { data: data.data, details: data.details }
-        } catch (e) {
-            return { error: e.message }
         }
     }
      
@@ -334,9 +320,10 @@ const AuthContextProvider = <IU,>({
         refreshUser,
         user,
         oAuth,
-        /* get,
+        get,
         post,
         del,
+        /* 
         upload,
         event,
         pageView,*/
