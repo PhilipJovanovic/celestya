@@ -82,8 +82,8 @@ export default Navbar;
 
 ## Todo
 
-[]: Upload request with worker as helper (?)
-[]: Refresh logic
+[ ]: Upload request with worker as helper (?)
+[ ]: Refresh logic
 [x]: Change returns at error
 [x]: GET request with auth
 [x]: POST request with auth
