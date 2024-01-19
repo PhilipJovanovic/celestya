@@ -16,7 +16,7 @@ CELESTYA_SECURE=true        // true / false
 
 Configure the api endpoints
 
-```js
+```ts
 // /src/app/api/[[...endpoint]]
 
 import { API_URL, HOST } from "@/config/env";
@@ -29,15 +29,13 @@ const config: IConfig = {
     userEndpoint: "/user",
 };
 
-export const POST = (req: any, opt: IRequestOptions) =>
-    Proxy("POST", req, opt, config);
-export const GET = (req: any, opt: IRequestOptions) =>
-    Proxy("GET", req, opt, config);
+export const POST = (req: any, opt: IRequestOptions) => Proxy("POST", req, opt, config);
+export const GET = (req: any, opt: IRequestOptions) => Proxy("GET", req, opt, config);
 ```
 
 Configure the provider
 
-```js
+```ts
 // /src/app/layout.tsx
 
 import { AuthProvider, Logout } from "celestya/client";
@@ -59,7 +57,7 @@ export default function RootLayout({
 
 Use the getSession function in server components (keep in mind they dont revalidate often!)
 
-```js
+```ts
 // /src/app/navbar.tsx
 
 import { getSession, /* Session */ } from "celestya";
@@ -82,10 +80,10 @@ export default Navbar;
 
 ## Todo
 
--   [ ]: Upload request with worker as helper (?)
--   [ ]: Refresh logic
--   [x]: Change returns at error
--   [x]: GET request with auth
--   [x]: POST request with auth
--   [x]: Fix issue with getSession serverside and config set at layout (If used at api/\_/route.tsx)
--   [x]: Fix issue with api endpoints if no layout has been loaded (if accessing api directly)
+- [ ]: Upload request with worker as helper (?)
+- [ ]: Refresh logic
+- [x]: Change returns at error
+- [x]: GET request with auth
+- [x]: POST request with auth
+- [x]: Fix issue with getSession serverside and config set at layout (If used at api/\_/route.tsx)
+- [x]: Fix issue with api endpoints if no layout has been loaded (if accessing api directly)
