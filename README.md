@@ -16,7 +16,7 @@ CELESTYA_SECURE=true        // true / false
 
 Configure the api endpoints
 
-```ts
+```tsx
 // /src/app/api/[[...endpoint]]
 
 import { API_URL, HOST } from "@/config/env";
@@ -35,7 +35,7 @@ export const GET = (req: any, opt: IRequestOptions) => Proxy("GET", req, opt, co
 
 Configure the provider
 
-```ts
+```tsx
 // /src/app/layout.tsx
 
 import { AuthProvider, Logout } from "celestya/client";
@@ -57,7 +57,7 @@ export default function RootLayout({
 
 Use the getSession function in server components (keep in mind they dont revalidate often!)
 
-```ts
+```tsx
 // /src/app/navbar.tsx
 
 import { getSession, /* Session */ } from "celestya";
@@ -73,6 +73,63 @@ const Navbar = async () => {
     const session = await getSession<User>();
 
     return <div>Welcome: {session.user?.name}</div>;
+};
+
+export default Navbar;
+```
+
+Use the apiFetch function in server components
+
+```tsx
+// /src/app/navbar.tsx
+
+import { apiFetch } from "celestya";
+import { config } from "@/app/api/[[...endpoint]]/route"
+
+// Optionally provide a user object
+interface User {
+    email: string
+    name: string
+}
+
+const Navbar = async () => {
+    const user = await apiFetch("user", {}, config)
+
+    return <div>Welcome: {session.user?.name}</div>;
+};
+
+export default Navbar;
+```
+
+
+Use the other functions in client components
+
+```tsx
+// /src/app/page.tsx
+
+import { useAuth } from 'celestya/client'
+
+// Optionally provide a user object
+interface User {
+    email: string
+    name: string
+}
+
+const Home = async () => {
+    const { ready, get } = useAuth()
+
+    const handleClick = () => {
+        try {
+            if (!ready) throw new Error('Not ready')
+            const res = await get('/user/billing')
+
+            console.log(res)
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    return <Button onClick={handleClick}>Welcome: {session.user?.name}</div>;
 };
 
 export default Navbar;

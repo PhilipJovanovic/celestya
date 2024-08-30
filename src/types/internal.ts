@@ -38,6 +38,7 @@ export interface IResponseError {
 }
 
 export interface IResponseSuccess<T, U> {
+    error: null;
     data: T;
     details: U;
 }

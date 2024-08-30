@@ -44,15 +44,17 @@ export default async function proxy(
             config,
         };
 
-        console.log(`[${method}]: /${parameters.path}`);
+        if (config.debug) console.log("#> proxy:", parameters);
+
+        //console.log(`[${method}]: /${parameters.path}`);
 
         if (rHandler[method][parameters.path])
-            return rHandler[method][parameters.path](parameters);
+            return await rHandler[method][parameters.path](parameters);
 
-        return invalidEndpoint;
+        return invalidEndpoint();
     } catch (e) {
-        console.log(e);
-        return requestError;
+        console.log("#> proxyError:", e);
+        return requestError();
     }
 }
 
@@ -68,7 +70,9 @@ async function login(request: NextRequest, config: IConfig) {
 
     const res = await response.json();
 
-    if (res.error) throw new Error(res.error);
+    if (config.debug) console.log("#> login", res);
+
+    if (res.error) return Response.json(res);
 
     const dec: any = jwtDecode(res.data.token);
 
@@ -88,7 +92,7 @@ async function login(request: NextRequest, config: IConfig) {
 async function getUser(request: NextRequest, config: IConfig) {
     const session = await getSessionServerside<any>();
 
-    if (!session || !session.token) return sessionError;
+    if (!session || !session.token) return sessionError();
 
     // * User already exists in session
     if (session.user)
@@ -110,11 +114,13 @@ async function getUser(request: NextRequest, config: IConfig) {
 
     const res = await response.json();
 
+    if (config.debug) console.log("#> getUser", res);
+
+    if (res.error) return Response.json(res);
+
     session.user = res.data;
 
     await session.save();
-
-    console.log("user? token: ", session);
 
     return Response.json({
         data: session.user,
@@ -139,7 +145,9 @@ async function oauth(request: NextRequest, config: IConfig) {
 
     const res = await response.json();
 
-    if (res.error) throw new Error(res.error);
+    if (config.debug) console.log("#> oauth", res);
+
+    if (res.error) return Response.json(res);
 
     return Response.json({
         data: res.data,
@@ -179,6 +187,8 @@ async function logout(config: IConfig) {
 
     revalidatePath(config.host, "layout");
 
+    //return Response.redirect(config.host);
+
     return Response.json({
         redirect: "/",
     });
@@ -212,11 +222,13 @@ async function proxyFunction(
 
     options.shift();
     const response: Response = await fetch(
-        `${config.apiUrl}/${options.join("/")}`,
+        `${config.apiUrl}/${options.join("/")}${request.nextUrl.search}`,
         opts
     );
 
     const res = await response.json();
+
+    if (config.debug) console.log("#> getProxyFunction", res);
 
     return Response.json(res);
 }

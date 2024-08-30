@@ -27,5 +27,12 @@ export interface IConfig {
     route: string;
     apiUrl: string;
     userEndpoint: string;
+    debug?: boolean;
 }
 export type Session<U = DefaultUser> = IronSession<ServerSideSession<U>>;
+
+/* serverSideFetch */
+export interface IServerSideRequestOptions {
+    method?: string;
+    body?: JSON;
+}
