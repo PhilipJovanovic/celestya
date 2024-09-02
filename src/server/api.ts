@@ -94,8 +94,10 @@ async function getUser(request: NextRequest, config: IConfig) {
 
     if (!session || !session.token) return sessionError();
 
+    const force = request.nextUrl.searchParams.get("force") == "true";
+
     // * User already exists in session
-    if (session.user)
+    if (session.user && !force)
         return Response.json({
             data: session.user,
         });
