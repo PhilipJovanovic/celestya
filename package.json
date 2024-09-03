@@ -1,6 +1,6 @@
 {
     "name": "celestya",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Highly opinionated session management tool for NextJS",
     "main": "./dist/index.js",
     "exports": {
