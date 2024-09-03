@@ -23,5 +23,4 @@ export const serverSideFetch = async (
     const res = await response.json();
 
     return res;
-    //return Response.json(res);
 };

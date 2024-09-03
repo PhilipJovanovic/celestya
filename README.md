@@ -93,7 +93,7 @@ interface User {
 }
 
 const Navbar = async () => {
-    const user = await apiFetch("user", {}, config)
+    const user = await apiFetch("/user", {}, config)
 
     return <div>Welcome: {session.user?.name}</div>;
 };
@@ -137,10 +137,11 @@ export default Navbar;
 
 ## Todo
 
-- [ ]: Upload request with worker as helper (?)
-- [ ]: Refresh logic
 - [x]: Change returns at error
 - [x]: GET request with auth
 - [x]: POST request with auth
 - [x]: Fix issue with getSession serverside and config set at layout (If used at api/\_/route.tsx)
 - [x]: Fix issue with api endpoints if no layout has been loaded (if accessing api directly)
+- [ ]: Upload request with worker as helper (?)
+- [ ]: Refresh logic
+- [ ]: Fix Response types
