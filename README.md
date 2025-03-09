@@ -31,6 +31,7 @@ const config: IConfig = {
 
 export const POST = (req: any, opt: IRequestOptions) => Proxy("POST", req, opt, config);
 export const GET = (req: any, opt: IRequestOptions) => Proxy("GET", req, opt, config);
+export const DELETE = (req: any, opt: IRequestOptions) => Proxy("DELETE", req, opt, config);
 ```
 
 Configure the provider
