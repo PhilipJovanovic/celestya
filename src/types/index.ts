@@ -6,7 +6,7 @@ import { DefaultUser } from "../server/session";
 export type Params = string[];
 
 export interface IRequestOptions {
-    params: { endpoint: Params };
+    params: Promise<{ endpoint: Params }>;
 }
 
 export interface RouteHandler {

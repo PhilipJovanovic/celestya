@@ -35,12 +35,13 @@ export default async function proxy(
     config: IConfig
 ) {
     try {
+        const params = await options.params
         const parameters = {
             request,
             path:
-                options.params.endpoint[0] ||
+                params.endpoint[0] ||
                 request.nextUrl.pathname.replace(config.route, ""),
-            options: options.params.endpoint,
+            options: params.endpoint,
             config,
         };
 

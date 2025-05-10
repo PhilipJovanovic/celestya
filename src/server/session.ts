@@ -31,10 +31,9 @@ export const sessionOptions: SessionOptions = {
 
 const getSessionServerside = async <U = DefaultUser>() => {
     const session: Session<U> = await getIronSession<ServerSideSession<U>>(
-        cookies(),
+        await cookies(),
         sessionOptions
     );
-
     return session;
 };
 
