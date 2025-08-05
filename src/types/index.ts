@@ -6,33 +6,39 @@ import { DefaultUser } from "../server/session";
 export type Params = string[];
 
 export interface IRequestOptions {
-    params: Promise<{ endpoint: Params }>;
+  params: Promise<{ endpoint: Params }>;
 }
 
 export interface RouteHandler {
+  [key: string]: {
     [key: string]: {
-        [key: string]: {
-            (params: {
-                request: NextRequest;
-                path: string;
-                config: IConfig;
-                options: string[];
-            }): Promise<any>;
-        };
+      (params: {
+        request: NextRequest;
+        path: string;
+        config: IConfig;
+        options: string[];
+      }): Promise<any>;
     };
+  };
 }
 
 export interface IConfig {
-    host: string;
-    route: string;
-    apiUrl: string;
-    userEndpoint: string;
-    debug?: boolean;
+  host: string;
+  route: string;
+  apiUrl: string;
+  userEndpoint: string;
+  debug?: boolean;
 }
 export type Session<U = DefaultUser> = IronSession<ServerSideSession<U>>;
 
 /* serverSideFetch */
 export interface IServerSideRequestOptions {
-    method?: string;
-    body?: JSON;
+  method?: string;
+  body?: JSON;
 }
+
+export type CallbackOptions = {
+  method: "GET" | "POST" | "DELETE";
+  url: string;
+  body?: object;
+};

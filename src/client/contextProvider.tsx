@@ -2,12 +2,12 @@
 
 import { createContext, useEffect, useState } from "react";
 import {
-    IAuthContext,
-    IAuthContextOptions,
-    ILoginData,
-    IOAuthData,
-    IRegisterData,
-    ResponseType,
+  IAuthContext,
+  IAuthContextOptions,
+  ILoginData,
+  IOAuthData,
+  IRegisterData,
+  ResponseType,
 } from "../types/internal";
 
 import { dFetch, gFetch, pFetch } from "./request";
@@ -22,169 +22,180 @@ import { useRouter } from "next/navigation";
 export const AuthContext = createContext<IAuthContext<any>>(null as any);
 
 const AuthContextProvider = <IU,>({
-    children,
-    routePrefix = "/api",
+  children,
+  routePrefix = "/api",
 }: IAuthContextOptions) => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [ready, setReady] = useState(false);
-    const [user, setUser] = useState<IU | {}>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<IU | {}>({});
 
-    const router = useRouter();
+  const router = useRouter();
 
-    // POST /session/login
-    const loginRoute = routePrefix + "/login";
+  // POST /session/login
+  const loginRoute = routePrefix + "/login";
 
-    // POST /session/refresh
-    const registerRoute = routePrefix + "/register";
+  // POST /session/refresh
+  const registerRoute = routePrefix + "/register";
 
-    // GET /session/logout
-    const logoutRoute = routePrefix + "/logout";
+  // GET /session/logout
+  const logoutRoute = routePrefix + "/logout";
 
-    // GET /session
-    const userRoute = routePrefix + "/user";
+  // GET /session
+  const userRoute = routePrefix + "/user";
 
-    // GET /session/oauth/API_OAUTH_URL
-    const oAuthRoute = routePrefix + "/oauth";
+  // GET /session/oauth/API_OAUTH_URL
+  const oAuthRoute = routePrefix + "/oauth";
 
-    // GET/POST/DELETE /proxy/URL
-    const proxyRoute = routePrefix + "/proxy";
+  // GET/POST/DELETE /proxy/URL
+  const proxyRoute = routePrefix + "/proxy";
 
-    const login = async (loginData: ILoginData): Promise<string> => {
-        try {
-            const res = await pFetch({
-                url: loginRoute,
-                body: loginData.data,
-            });
+  const login = async (loginData: ILoginData): Promise<string> => {
+    try {
+      const res = await pFetch({
+        url: loginRoute,
+        body: loginData.data,
+      });
 
-            setIsLoggedIn(true);
+      setIsLoggedIn(true);
 
-            if (res.error) throw new Error(res.message);
+      if (res.error) throw new Error(res.message);
 
-            return loginData.redirect || "/";
-        } catch (e: any) {
-            return `${loginData.onErrorUrl || "/"}?error=${e.message}`;
-        }
-    };
+      return loginData.redirect || "/";
+    } catch (e: any) {
+      return `${loginData.onErrorUrl || "/"}?error=${e.message}`;
+    }
+  };
 
-    const register = async (registerData: IRegisterData): Promise<string> => {
-        try {
-            const res = await pFetch({
-                url: registerRoute,
-                body: registerData.data,
-            });
+  const register = async (registerData: IRegisterData): Promise<string> => {
+    try {
+      const res = await pFetch({
+        url: registerRoute,
+        body: registerData.data,
+      });
 
-            if (res.error) throw new Error(res.message);
+      if (res.error) throw new Error(res.message);
 
-            return `${registerData.redirect || "/"}?success=true`;
-        } catch (e: any) {
-            return `${registerData.onErrorUrl || "/"}?error=${e.message}`;
-        }
-    };
+      return `${registerData.redirect || "/"}?success=true`;
+    } catch (e: any) {
+      return `${registerData.onErrorUrl || "/"}?error=${e.message}`;
+    }
+  };
 
-    const oAuth = async ({
-        state,
-        oAuthUrl,
-        onErrorUrl,
-    }: IOAuthData): Promise<string> => {
-        try {
-            const url = new URL(oAuthRoute, "http://localhost/");
+  const oAuth = async ({
+    state,
+    oAuthUrl,
+    onErrorUrl,
+  }: IOAuthData): Promise<string> => {
+    try {
+      const url = new URL(oAuthRoute, "http://localhost/");
 
-            url.searchParams.set("authUrl", oAuthUrl);
+      url.searchParams.set("authUrl", oAuthUrl);
 
-            if (state && state !== "/") url.searchParams.set("state", state);
+      if (state && state !== "/") url.searchParams.set("state", state);
 
-            const response = await gFetch({ url: url.pathname + url.search });
+      const response = await gFetch({ url: url.pathname + url.search });
 
-            return response.data;
-        } catch (e: any) {
-            return `${onErrorUrl || "/"}?error=${e.message}`;
-        }
-    };
+      return response.data;
+    } catch (e: any) {
+      return `${onErrorUrl || "/"}?error=${e.message}`;
+    }
+  };
 
-    const logout = async (): Promise<string> => {
-        try {
-            const data = await gFetch({
-                url: logoutRoute,
-                options: { cache: "no-store" },
-            });
+  const logout = async (): Promise<string> => {
+    try {
+      const data = await gFetch({
+        url: logoutRoute,
+        options: { cache: "no-store" },
+      });
 
-            setIsLoggedIn(false);
-            setUser({});
+      setIsLoggedIn(false);
+      setUser({});
 
-            return data.data;
-        } catch (e: any) {
-            console.log(e);
-            return "/";
-        }
-    };
+      return data.data;
+    } catch (e: any) {
+      console.log(e);
+      return "/";
+    }
+  };
 
-    const refreshUser = async (force?: boolean): Promise<void> => {
-        try {
-            const data = await gFetch({
-                url: `${userRoute}${force ? "?force=true" : ""}`,
-                options: { cache: "no-store" },
-            });
+  const refreshUser = async (force?: boolean): Promise<void> => {
+    try {
+      const data = await gFetch({
+        url: `${userRoute}${force ? "?force=true" : ""}`,
+        options: { cache: "no-store" },
+      });
 
-            if (!data.error) {
-                setUser(data.data);
-                setIsLoggedIn(true);
-            } else {
-                setUser({});
-                setIsLoggedIn(false);
-            }
+      if (!data.error) {
+        setUser(data.data);
+        setIsLoggedIn(true);
+      } else {
+        setUser({});
+        setIsLoggedIn(false);
+      }
 
-            setReady(true);
+      setReady(true);
 
-            router.refresh();
-        } catch (e) {
-            console.log("refreshUser error: ", e);
-        }
-    };
+      router.refresh();
+    } catch (e) {
+      console.log("refreshUser error: ", e);
+    }
+  };
 
-    const get = async <T, U>(url: string): Promise<ResponseType<T, U>> => {
-        try {
-            const r = await gFetch({ url: `${proxyRoute}${url}` });
+  const get = async <T, U>({
+    url,
+  }: {
+    url: string;
+  }): Promise<ResponseType<T, U>> => {
+    try {
+      const r = await gFetch({ url: `${proxyRoute}${url}` });
 
-            return r;
-        } catch (e: any) {
-            return { error: "getRequestError", message: e.message };
-        }
-    };
+      return r;
+    } catch (e: any) {
+      return { error: "getRequestError", message: e.message };
+    }
+  };
 
-    const post = async <T, U = any>(
-        url: string,
-        body: any
-    ): Promise<ResponseType<T, U>> => {
-        try {
-            const r = await pFetch({
-                url: `${proxyRoute}${url}`,
-                body,
-            });
+  const post = async <T, U = any>({
+    url,
+    body,
+  }: {
+    url: string;
+    body: object;
+  }): Promise<ResponseType<T, U>> => {
+    try {
+      const r = await pFetch({
+        url: `${proxyRoute}${url}`,
+        body,
+      });
 
-            return r;
-        } catch (e: any) {
-            return { error: "getRequestError", message: e.message };
-        }
-    };
+      return r;
+    } catch (e: any) {
+      return { error: "getRequestError", message: e.message };
+    }
+  };
 
-    const del = async <T, U>(url: string): Promise<ResponseType<T, U>> => {
-        try {
-            const r = await dFetch({ url: `${proxyRoute}${url}` });
+  const del = async <T, U>({
+    url,
+  }: {
+    url: string;
+  }): Promise<ResponseType<T, U>> => {
+    try {
+      const r = await dFetch({ url: `${proxyRoute}${url}` });
 
-            return r;
-        } catch (e: any) {
-            return { error: "getRequestError", message: e.message };
-        }
-    };
+      return r;
+    } catch (e: any) {
+      return { error: "getRequestError", message: e.message };
+    }
+  };
 
-    /**
-     * Can only be used if user is logged in! and already initialised
-     * @param url url for upload
-     * @param formData form data
-     * @param setProgress progress dispatch
-     * @returns object with data or error
-     */
-    /* const upload = async <T, U = any>(
+  /**
+   * Can only be used if user is logged in! and already initialised
+   * @param url url for upload
+   * @param formData form data
+   * @param setProgress progress dispatch
+   * @returns object with data or error
+   */
+  /* const upload = async <T, U = any>(
         url: string,
         formName: string,
         files: File[],
@@ -327,28 +338,28 @@ const AuthContextProvider = <IU,>({
         }
     } */
 
-    useEffect(() => {
-        if (!ready) refreshUser();
-    }, []);
+  useEffect(() => {
+    if (!ready) refreshUser();
+  }, []);
 
-    const provider = {
-        ready,
-        login,
-        register,
-        logout,
-        isLoggedIn,
-        refreshUser,
-        user,
-        oAuth,
-        get,
-        post,
-        del,
-        /* upload, */
-    };
+  const provider = {
+    ready,
+    login,
+    register,
+    logout,
+    isLoggedIn,
+    refreshUser,
+    user,
+    oAuth,
+    get,
+    post,
+    del,
+    /* upload, */
+  };
 
-    return (
-        <AuthContext.Provider value={provider}>{children}</AuthContext.Provider>
-    );
+  return (
+    <AuthContext.Provider value={provider}>{children}</AuthContext.Provider>
+  );
 };
 
 export default AuthContextProvider;

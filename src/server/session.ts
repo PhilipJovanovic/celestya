@@ -5,36 +5,45 @@ import { ServerSideSession } from "../types/internal";
 import { Session } from "../types";
 
 declare module "iron-session" {
-    interface IronSessionData<U, T> {
-        user?: U;
-        token?: {
-            jwt: string;
-            refresh: string;
-            decoded: T;
-        };
-    }
+  interface IronSessionData<U, T> {
+    user?: U;
+    token?: {
+      jwt: string;
+      refresh: string;
+      decoded: T;
+    };
+  }
 }
 
 export interface DefaultUser {
-    [key: string]: any;
+  [key: string]: any;
 }
 
 export interface Token {
-    token: string;
+  token: string;
 }
 
 export const sessionOptions: SessionOptions = {
-    password: process.env.CELESTYA_SECRET || "PLEASE_SET_PASSWORD",
-    cookieName: process.env.CELESTYA_COOKIE_NAME || "PLEASE_SET_COOKIE_NAME",
-    cookieOptions: { secure: process.env.SECURE === "true" || false },
+  password: process.env.CELESTYA_SECRET || "PLEASE_SET_PASSWORD",
+  cookieName: process.env.CELESTYA_COOKIE_NAME || "PLEASE_SET_COOKIE_NAME",
+  cookieOptions: { secure: process.env.SECURE === "true" },
 };
 
-const getSessionServerside = async <U = DefaultUser>() => {
-    const session: Session<U> = await getIronSession<ServerSideSession<U>>(
-        await cookies(),
-        sessionOptions
+export const getSession = async <U = DefaultUser>(
+  sessionOpts?: SessionOptions
+) => {
+  if (
+    sessionOpts === undefined &&
+    (!process.env.CELESTYA_SECRET || !process.env.CELESTYA_COOKIE_NAME)
+  ) {
+    throw new Error(
+      "CELESTYA_SECRET and CELESTYA_COOKIE_NAME must be set in environment variables."
     );
-    return session;
-};
+  }
 
-export default getSessionServerside;
+  const session: Session<U> = await getIronSession<ServerSideSession<U>>(
+    await cookies(),
+    sessionOpts || sessionOptions
+  );
+  return session;
+};
