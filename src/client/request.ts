@@ -1,48 +1,59 @@
-export async function gFetch({
-  url,
-  options,
-}: {
-  url: string | URL;
-  options?: object;
-}) {
-  const response: Response = await fetch(url, {
-    method: "GET",
-    ...options,
-  });
+import { BaseError, err, ok, Result, Success } from "../types/response";
 
-  return await response.json();
-}
-
-export async function pFetch({
+export const clientSideFetch = async <T>({
   url,
+  method = "GET",
   body,
-  options,
+  ...options
 }: {
-  url: string | URL;
-  body: object;
-  options?: object;
-}) {
-  const response: Response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  url: string;
+  method?: "GET" | "POST" | "DELETE";
+  body?: object;
+} & Omit<RequestInit, "body" | "method">): Promise<Result<T, BaseError>> => {
+  const opts: RequestInit = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
     ...options,
-  });
+  };
 
-  return await response.json();
-}
+  try {
+    if (body) opts.body = JSON.stringify(body);
+  } catch (e) {
+    return err({
+      error: "PARSE_ERROR",
+      message: "Failed to parse request body as JSON",
+    });
+  }
 
-export async function dFetch({
-  url,
-  options,
-}: {
-  url: string | URL;
-  options?: object;
-}) {
-  const response: Response = await fetch(url, {
-    method: "DELETE",
-    ...options,
-  });
+  try {
+    const response: Response = await fetch(url, opts);
+    if (!response.ok) {
+      return err({
+        error: "RESPONSE_ERROR",
+        message: `HTTP error! status: ${response.status}`,
+      });
+    }
 
-  return await response.json();
-}
+    try {
+      const res = await response.json();
+      if (res.error !== undefined) {
+        return err(res);
+      }
+
+      return ok(res as Success<T>);
+    } catch (e) {
+      return err({
+        error: "PARSE_ERROR",
+        message: "Failed to parse response as JSON",
+      });
+    }
+  } catch (e) {
+    return err({
+      error: "FETCH_ERROR",
+      message: "Failed to fetch the resource: " + String(e),
+    });
+  }
+};

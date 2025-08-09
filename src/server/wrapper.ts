@@ -1,10 +1,8 @@
-import { CallbackOptions, IConfig } from "../types";
+import { CallbackOptions, IConfig, WrapperFunction } from "../types";
 import { serverSideFetch } from "./fetch";
 
-type WrapperFunction = (data: CallbackOptions) => Promise<unknown>;
-
 export const serverAPIWrapper = <T>(
-  apiWrapper: (cb: WrapperFunction) => unknown,
+  apiWrapper: (cb: WrapperFunction) => T,
   config: IConfig
 ) => {
   return apiWrapper(async (data: CallbackOptions) => {
@@ -19,22 +17,12 @@ export const serverAPIWrapper = <T>(
   });
 };
 
-const registerWrapper = (cb: (opts: CallbackOptions) => Promise<unknown>) => {
+const registerWrapper = (cb: WrapperFunction) => {
   return {
     commmands: {
-      get: () => cb({ method: "GET", url: "/command" }),
+      get: () => cb<string>({ method: "GET", url: "/command" }),
       update: (id: string, body: JSON) =>
         cb({ method: "POST", url: `/command/${id}`, body }),
     },
   };
 };
-
-const test = serverAPIWrapper(registerWrapper, {
-  host: "localhost",
-  route: "/api",
-  apiUrl: "http://localhost:3000/api",
-  userEndpoint: "/user",
-  debug: true,
-});
-
-test;

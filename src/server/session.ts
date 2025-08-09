@@ -16,7 +16,7 @@ declare module "iron-session" {
 }
 
 export interface DefaultUser {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Token {
@@ -45,5 +45,6 @@ export const getSession = async <U = DefaultUser>(
     await cookies(),
     sessionOpts || sessionOptions
   );
+
   return session;
 };

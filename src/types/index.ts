@@ -2,6 +2,7 @@ import { IronSession } from "iron-session";
 import { NextRequest } from "next/server";
 import { ServerSideSession } from "./internal";
 import { DefaultUser } from "../server/session";
+import { BaseError, Result } from "./response";
 
 export type Params = string[];
 
@@ -42,3 +43,7 @@ export type CallbackOptions = {
   url: string;
   body?: object;
 };
+
+export type WrapperFunction = <T>(
+  data: CallbackOptions
+) => Promise<Result<T, BaseError>>;

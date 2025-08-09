@@ -1,9 +1,9 @@
 import { useContext } from "react";
 import { AuthContext } from "./contextProvider";
-import { CallbackOptions } from "../types";
+import { CallbackOptions, WrapperFunction } from "../types";
 
-const useAPIWrapperContext = (
-  apiWrapper: (cb: (data: CallbackOptions) => Promise<unknown>) => void
+export const useAPIWrapperContext = <T,>(
+  apiWrapper: (cb: WrapperFunction) => T
 ) => {
   const { get, post, del } = useContext(AuthContext);
 
@@ -23,5 +23,3 @@ const useAPIWrapperContext = (
       }
     });
 };
-
-export default useAPIWrapperContext;

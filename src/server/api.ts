@@ -4,7 +4,8 @@ import { requestError } from "./errors";
 import { invalidEndpoint, sessionError } from "./errors";
 import { jwtDecode } from "jwt-decode";
 import { IConfig, IRequestOptions, RouteHandler } from "../types";
-import { getSession } from "./session";
+import { DefaultUser, getSession } from "./session";
+import { serverSideFetch } from "./fetch";
 
 const rHandler: RouteHandler = {
   GET: {
@@ -46,8 +47,6 @@ export async function Proxy(
 
     if (config.debug) console.log("#> proxy:", parameters);
 
-    //console.log(`[${method}]: /${parameters.path}`);
-
     if (rHandler[method][parameters.path])
       return await rHandler[method][parameters.path](parameters);
 
@@ -59,26 +58,26 @@ export async function Proxy(
 }
 
 async function login(request: NextRequest, config: IConfig) {
-  const session = await getSession();
   const formData = await request.json();
-
-  const response: Response = await fetch(`${config.apiUrl}/login`, {
+  const res = await serverSideFetch<{ token: string; refresh: string }>({
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(formData),
+    url: "/login",
+    body: formData,
+    sessionIsOptional: true,
+    config,
   });
 
-  const res = await response.json();
-
   if (config.debug) console.log("#> login", res);
+  if (res.isErr()) {
+    return Response.json(res.error);
+  }
 
-  if (res.error) return Response.json(res);
+  const dec = jwtDecode<any>(res.value.data.token);
 
-  const dec: any = jwtDecode(res.data.token);
-
+  const session = await getSession();
   session.token = {
-    jwt: res.data.token,
-    refresh: res.data.refresh || "refresh_token",
+    jwt: res.value.data.token,
+    refresh: res.value.data.refresh || "refresh_token",
     decoded: dec,
   };
 
@@ -90,38 +89,30 @@ async function login(request: NextRequest, config: IConfig) {
 }
 
 async function getUser(request: NextRequest, config: IConfig) {
-  const session = await getSession<any>();
+  const session = await getSession();
 
-  if (!session || !session.token) return sessionError();
+  if (session.token) return Response.json(sessionError);
 
-  const force = request.nextUrl.searchParams.get("force") == "true";
+  const force = request.nextUrl.searchParams.get("force") === "true";
 
   // * User already exists in session
-  if (session.user && !force)
+  if (session.user !== undefined && !force)
     return Response.json({
       data: session.user,
     });
 
   // * User does not exist in session
-  const response: Response = await fetch(
-    `${config.apiUrl}${config.userEndpoint}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + session.token.jwt,
-      },
-    }
-  );
-
-  const res = await response.json();
+  const res = await serverSideFetch<DefaultUser>({
+    url: `/${config.userEndpoint}`,
+    config,
+  });
 
   if (config.debug) console.log("#> getUser", res);
+  if (res.isErr()) {
+    return Response.json(res.error);
+  }
 
-  if (res.error) return Response.json(res);
-
-  session.user = res.data;
-
+  session.user = res.value.data;
   await session.save();
 
   return Response.json({
@@ -131,39 +122,39 @@ async function getUser(request: NextRequest, config: IConfig) {
 
 async function oauth(request: NextRequest, config: IConfig) {
   const authUrl = request.nextUrl.searchParams.get("authUrl");
+  const state = request.nextUrl.searchParams.get("state");
 
   if (!authUrl) throw new Error("No authUrl provided");
 
   const url = new URL(config.route + "/oauth_callback", config.host);
-
-  const state = request.nextUrl.searchParams.get("state");
   if (state) url.searchParams.set("state", state);
 
-  const response: Response = await fetch(
-    `${config.apiUrl}${authUrl}?returnUrl=${encodeURIComponent(url.toString())}`
-  );
+  const oAuthUrl = new URL(authUrl, config.apiUrl);
+  oAuthUrl.searchParams.set("returnUrl", url.toString());
 
-  const res = await response.json();
-
-  if (config.debug) console.log("#> oauth", res);
-
-  if (res.error) return Response.json(res);
-
-  return Response.json({
-    data: res.data,
+  const res = await serverSideFetch({
+    url: oAuthUrl.pathname + oAuthUrl.search,
+    config,
+    sessionIsOptional: true,
   });
+
+  if (res.isErr()) {
+    if (config.debug) console.log("#> oauthError", res.error);
+    return Response.json(res.error);
+  }
+
+  return Response.json(res.value);
 }
 
 async function oauth_callback(request: NextRequest, config: IConfig) {
-  const session = await getSession();
-  const token = request.nextUrl.searchParams.get("token");
   const refresh = request.nextUrl.searchParams.get("refresh");
-  const state = request.nextUrl.searchParams.get("state");
 
-  if (!token) throw new Error("No token provided");
+  const token = request.nextUrl.searchParams.get("token");
+  if (token === null) throw new Error("No token provided");
 
-  const dec: any = jwtDecode(token);
+  const dec = jwtDecode<any>(token);
 
+  const session = await getSession();
   session.token = {
     jwt: token,
     refresh: refresh || "refresh_token",
@@ -172,7 +163,9 @@ async function oauth_callback(request: NextRequest, config: IConfig) {
 
   await session.save();
 
-  if (state)
+  // redirect to return url if provided
+  const state = request.nextUrl.searchParams.get("state");
+  if (state !== null)
     return Response.redirect(
       state.includes("http") ? state : config.host + state
     );
@@ -182,12 +175,9 @@ async function oauth_callback(request: NextRequest, config: IConfig) {
 
 async function logout(config: IConfig) {
   const session = await getSession();
-
   session.destroy();
 
   revalidatePath(config.host, "layout");
-
-  //return Response.redirect(config.host);
 
   return Response.json({
     redirect: "/",
@@ -195,40 +185,29 @@ async function logout(config: IConfig) {
 }
 
 async function debug() {
-  const session = await getSession();
-
-  return Response.json(session);
+  return Response.json(await getSession());
 }
 
 // TODO: add refresh logic
 
 async function proxyFunction(
-  method: string,
+  method: "GET" | "POST" | "DELETE",
   request: NextRequest,
   config: IConfig,
   options: string[]
 ) {
-  const session = await getSession();
-
-  const opts: RequestInit = {
+  options.shift(); // remove the first element which is the endpoint
+  const res = await serverSideFetch({
     method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + session.token?.jwt,
-    },
-  };
+    url: `/${options.join("/")}${request.nextUrl.search}`,
+    body: method === "POST" ? await request.json() : undefined,
+    config,
+  });
 
-  if (method === "POST") opts.body = JSON.stringify(await request.json());
+  if (config.debug) console.log("#> proxyFunction", res);
+  if (res.isErr()) {
+    return Response.json(res.error);
+  }
 
-  options.shift();
-  const response: Response = await fetch(
-    `${config.apiUrl}/${options.join("/")}${request.nextUrl.search}`,
-    opts
-  );
-
-  const res = await response.json();
-
-  if (config.debug) console.log("#> getProxyFunction", res);
-
-  return Response.json(res);
+  return Response.json(res.value);
 }

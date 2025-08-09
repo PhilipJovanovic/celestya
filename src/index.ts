@@ -1,4 +1,9 @@
-export { type IConfig, type IRequestOptions, type Session } from "./types";
+export {
+  type IConfig,
+  type IRequestOptions,
+  type Session,
+  type WrapperFunction,
+} from "./types";
 
 export { CelestyaProxy } from "./server";
 export { serverSideFetch } from "./server/fetch";

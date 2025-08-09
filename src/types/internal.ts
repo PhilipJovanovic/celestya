@@ -1,18 +1,7 @@
 import { Token } from "../server/session";
 
 import { IronSessionData } from "iron-session";
-
-export interface IRequestSuccess<T, U = any> {
-  error?: string;
-  data: T;
-  message?: U;
-}
-
-export interface IRequestError<T, U = any> {
-  error: string;
-  data?: T;
-  message?: U;
-}
+import { BaseError, Result } from "./response";
 
 export interface ILoginData {
   data: object;
@@ -32,19 +21,6 @@ export interface IOAuthData {
   onErrorUrl?: string;
 }
 
-export interface IResponseError {
-  error: string;
-  message: string;
-}
-
-export interface IResponseSuccess<T, U> {
-  error: null;
-  data: T;
-  details: U;
-}
-
-type Method = "GET" | "POST" | "DELETE";
-
 export interface IAuthContext<U> {
   isLoggedIn: boolean;
   ready: boolean;
@@ -54,12 +30,12 @@ export interface IAuthContext<U> {
   oAuth: (data: IOAuthData) => Promise<string>;
   logout: () => Promise<string>;
   refreshUser: (force?: boolean) => Promise<void>;
-  get: <T, U = any>(props: { url: string }) => Promise<ResponseType<T, U>>;
-  post: <T, U = any>(props: {
+  get: <T>(props: { url: string }) => Promise<Result<T, BaseError>>;
+  post: <T>(props: {
     url: string;
     body: object;
-  }) => Promise<ResponseType<T, U>>;
-  del: <T, U = any>(props: { url: string }) => Promise<ResponseType<T, U>>;
+  }) => Promise<Result<T, BaseError>>;
+  del: <T>(props: { url: string }) => Promise<Result<T, BaseError>>;
   /* 
     upload: <T, U = any>(
         url: string,
@@ -75,12 +51,9 @@ export interface IAuthContextOptions {
   // Route prefix of (local) API
   routePrefix?: string;
 }
+
 export interface IChildProps {
   children?: React.ReactNode;
 }
 
-export type Request<T, U> = IRequestError<T, U> | IRequestSuccess<T, U>;
-export type ResponseType<T, U = unknown> =
-  | IResponseError
-  | IResponseSuccess<T, U>;
 export type ServerSideSession<U> = IronSessionData<U, Token>;

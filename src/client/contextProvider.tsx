@@ -7,12 +7,14 @@ import {
   ILoginData,
   IOAuthData,
   IRegisterData,
-  ResponseType,
 } from "../types/internal";
 
-import { dFetch, gFetch, pFetch } from "./request";
+import { type Result } from "../types/response";
+
+import { clientSideFetch } from "./request";
 
 import { useRouter } from "next/navigation";
+import { BaseError } from "../types/response";
 /*                                                                    +
     Frontend context for providing login, logout, register and refresh
     'use client' needed for using -> client components only
@@ -50,35 +52,29 @@ const AuthContextProvider = <IU,>({
   const proxyRoute = routePrefix + "/proxy";
 
   const login = async (loginData: ILoginData): Promise<string> => {
-    try {
-      const res = await pFetch({
-        url: loginRoute,
-        body: loginData.data,
-      });
-
-      setIsLoggedIn(true);
-
-      if (res.error) throw new Error(res.message);
-
-      return loginData.redirect || "/";
-    } catch (e: any) {
-      return `${loginData.onErrorUrl || "/"}?error=${e.message}`;
+    const res = await clientSideFetch({
+      url: loginRoute,
+      body: loginData.data,
+    });
+    if (res.isErr()) {
+      return `${loginData.onErrorUrl || "/"}?error=${res.error.error}`;
     }
+
+    setIsLoggedIn(true);
+
+    return loginData.redirect || "/";
   };
 
   const register = async (registerData: IRegisterData): Promise<string> => {
-    try {
-      const res = await pFetch({
-        url: registerRoute,
-        body: registerData.data,
-      });
+    const res = await clientSideFetch<{ redirect: string }>({
+      url: registerRoute,
+      body: registerData.data,
+    });
 
-      if (res.error) throw new Error(res.message);
-
-      return `${registerData.redirect || "/"}?success=true`;
-    } catch (e: any) {
-      return `${registerData.onErrorUrl || "/"}?error=${e.message}`;
+    if (res.isErr()) {
+      return `${registerData.onErrorUrl || "/"}?error=${res.error.error}`;
     }
+    return `${registerData.redirect || "/"}?success=true`;
   };
 
   const oAuth = async ({
@@ -86,106 +82,83 @@ const AuthContextProvider = <IU,>({
     oAuthUrl,
     onErrorUrl,
   }: IOAuthData): Promise<string> => {
-    try {
-      const url = new URL(oAuthRoute, "http://localhost/");
+    const url = new URL(oAuthRoute, "http://localhost/");
+    url.searchParams.set("authUrl", oAuthUrl);
 
-      url.searchParams.set("authUrl", oAuthUrl);
+    if (state && state !== "/") url.searchParams.set("state", state);
 
-      if (state && state !== "/") url.searchParams.set("state", state);
-
-      const response = await gFetch({ url: url.pathname + url.search });
-
-      return response.data;
-    } catch (e: any) {
-      return `${onErrorUrl || "/"}?error=${e.message}`;
+    const response = await clientSideFetch<string>({
+      url: url.pathname + url.search,
+    });
+    if (response.isErr()) {
+      return `${onErrorUrl || "/"}?error=${response.error.message}`;
     }
+
+    return response.value.data;
   };
 
   const logout = async (): Promise<string> => {
-    try {
-      const data = await gFetch({
-        url: logoutRoute,
-        options: { cache: "no-store" },
-      });
+    const data = await clientSideFetch<string>({
+      url: logoutRoute,
+      cache: "no-store",
+    });
 
-      setIsLoggedIn(false);
-      setUser({});
-
-      return data.data;
-    } catch (e: any) {
-      console.log(e);
+    if (data.isErr()) {
       return "/";
     }
+
+    setIsLoggedIn(false);
+    setUser({});
+
+    return data.value.data;
   };
 
   const refreshUser = async (force?: boolean): Promise<void> => {
-    try {
-      const data = await gFetch({
-        url: `${userRoute}${force ? "?force=true" : ""}`,
-        options: { cache: "no-store" },
-      });
+    const data = await clientSideFetch<IU>({
+      url: `${userRoute}${force ? "?force=true" : ""}`,
+      cache: "no-store",
+    });
 
-      if (!data.error) {
-        setUser(data.data);
-        setIsLoggedIn(true);
-      } else {
-        setUser({});
-        setIsLoggedIn(false);
-      }
-
-      setReady(true);
-
-      router.refresh();
-    } catch (e) {
-      console.log("refreshUser error: ", e);
+    if (data.isErr()) {
+      setUser({});
+      setIsLoggedIn(false);
+    } else {
+      setUser(data.value.data);
     }
+
+    setReady(true);
+
+    router.refresh();
   };
 
-  const get = async <T, U>({
+  const get = async <T,>({
     url,
   }: {
     url: string;
-  }): Promise<ResponseType<T, U>> => {
-    try {
-      const r = await gFetch({ url: `${proxyRoute}${url}` });
-
-      return r;
-    } catch (e: any) {
-      return { error: "getRequestError", message: e.message };
-    }
+  }): Promise<Result<T, BaseError>> => {
+    return clientSideFetch({ url: `${proxyRoute}${url}` });
   };
 
-  const post = async <T, U = any>({
+  const post = async <T,>({
     url,
     body,
   }: {
     url: string;
     body: object;
-  }): Promise<ResponseType<T, U>> => {
-    try {
-      const r = await pFetch({
-        url: `${proxyRoute}${url}`,
-        body,
-      });
-
-      return r;
-    } catch (e: any) {
-      return { error: "getRequestError", message: e.message };
-    }
+  }): Promise<Result<T, BaseError>> => {
+    return clientSideFetch({
+      method: "POST",
+      url: `${proxyRoute}${url}`,
+      body,
+    });
   };
 
-  const del = async <T, U>({
+  const del = async <T,>({
     url,
   }: {
     url: string;
-  }): Promise<ResponseType<T, U>> => {
-    try {
-      const r = await dFetch({ url: `${proxyRoute}${url}` });
-
-      return r;
-    } catch (e: any) {
-      return { error: "getRequestError", message: e.message };
-    }
+  }): Promise<Result<T, BaseError>> => {
+    return clientSideFetch({ method: "DELETE", url: `${proxyRoute}${url}` });
   };
 
   /**
