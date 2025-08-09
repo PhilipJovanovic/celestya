@@ -16,7 +16,7 @@ export type Success<S> = {
  */
 export type Result<T, E extends BaseError> = Ok<T, E> | Err<T, E>;
 
-type IResult<T, E extends BaseError> = {
+interface IResult<T, E extends BaseError> {
   /**
    * Checks if the `Result` is an `Ok` instance
    */
@@ -26,7 +26,7 @@ type IResult<T, E extends BaseError> = {
    * Checks if the `Result` is an `Err` instance.
    */
   isErr: () => this is Err<T, E>;
-};
+}
 
 /**
  * Represents a successful `Result` value.

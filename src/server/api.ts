@@ -95,7 +95,7 @@ async function login(request: NextRequest, config: IConfig) {
 async function getUser(request: NextRequest, config: IConfig) {
   const session = await getSession();
 
-  if (session.token)
+  if (session.token === undefined)
     return Response.json({
       error: "SESSION_ERROR",
       message: "Session is required but not found.",
