@@ -1,7 +1,5 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requestError } from "./errors";
-import { invalidEndpoint, sessionError } from "./errors";
 import { jwtDecode } from "jwt-decode";
 import { IConfig, IRequestOptions, RouteHandler } from "../types";
 import { DefaultUser, getSession } from "./session";
@@ -50,10 +48,16 @@ export async function Proxy(
     if (rHandler[method][parameters.path])
       return await rHandler[method][parameters.path](parameters);
 
-    return invalidEndpoint();
+    return Response.json({
+      error: "INVALID_ENDPOINT",
+      message: "the provided endpoint is not valid",
+    });
   } catch (e) {
     console.log("#> proxyError:", e);
-    return requestError();
+    Response.json({
+      error: "REQUEST_ERROR",
+      message: "error while sending request through frontend-backend proxy",
+    });
   }
 }
 
@@ -91,7 +95,11 @@ async function login(request: NextRequest, config: IConfig) {
 async function getUser(request: NextRequest, config: IConfig) {
   const session = await getSession();
 
-  if (session.token) return Response.json(sessionError);
+  if (session.token)
+    return Response.json({
+      error: "SESSION_ERROR",
+      message: "Session is required but not found.",
+    });
 
   const force = request.nextUrl.searchParams.get("force") === "true";
 

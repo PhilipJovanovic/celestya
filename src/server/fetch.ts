@@ -1,4 +1,4 @@
-import { IConfig, IServerSideRequestOptions } from "../types";
+import { IConfig } from "../types";
 import { BaseError, err, ok, Result, Success } from "../types/response";
 import { getSession } from "./session";
 
