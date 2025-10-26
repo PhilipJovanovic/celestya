@@ -143,6 +143,6 @@ export default Navbar;
 - [x]: POST request with auth
 - [x]: Fix issue with getSession serverside and config set at layout (If used at api/\_/route.tsx)
 - [x]: Fix issue with api endpoints if no layout has been loaded (if accessing api directly)
+- [X]: Refresh logic
+- [X]: Fix Response types
 - [ ]: Upload request with worker as helper (?)
-- [ ]: Refresh logic
-- [ ]: Fix Response types
