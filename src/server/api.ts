@@ -3,11 +3,12 @@ import { revalidatePath } from "next/cache";
 import { jwtDecode } from "jwt-decode";
 import { IConfig, IRequestOptions, RouteHandler } from "../types";
 import { DefaultUser, getSession } from "./session";
-import { serverSideFetch } from "./fetch";
+import { serverSideFetch, attemptTokenRefresh } from "./fetch";
 
 const rHandler: RouteHandler = {
   GET: {
     user: ({ request, config }) => getUser(request, config),
+    refresh: ({ request, config }) => refresh(request, config),
     logout: ({ config }) => logout(config),
     debug: () => debug(),
     oauth: ({ request, config }) => oauth(request, config),
@@ -111,7 +112,7 @@ async function getUser(request: NextRequest, config: IConfig) {
 
   // * User does not exist in session
   const res = await serverSideFetch<DefaultUser>({
-    url: `/${config.userEndpoint}`,
+    url: `${config.userEndpoint}`,
     config,
   });
 
@@ -196,7 +197,21 @@ async function debug() {
   return Response.json(await getSession());
 }
 
-// TODO: add refresh logic
+async function refresh(request: NextRequest, config: IConfig) {
+  const result = await attemptTokenRefresh(config);
+
+  if (config.debug) console.log("#> refresh result", result);
+
+  if (result.isErr()) {
+    return Response.json(result.error, { status: 401 });
+  }
+
+  const url = request.nextUrl;
+  url.pathname = decodeURIComponent(url.searchParams.get("r") || "");
+  url.searchParams.delete("r");
+
+  return Response.redirect(url);
+}
 
 async function proxyFunction(
   method: "GET" | "POST" | "DELETE",
