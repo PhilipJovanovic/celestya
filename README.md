@@ -136,6 +136,10 @@ const Home = async () => {
 export default Navbar;
 ```
 
+## How to upload to npm
+
+
+
 ## Todo
 
 - [x]: Change returns at error
