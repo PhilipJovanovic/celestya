@@ -220,11 +220,21 @@ async function proxyFunction(
   options: string[]
 ) {
   options.shift(); // remove the first element which is the endpoint
+
+  // Forward custom headers (X-*) from the incoming request
+  const forwardHeaders: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    if (key.startsWith("x-") && key !== "x-forwarded-for" && key !== "x-forwarded-host" && key !== "x-forwarded-proto") {
+      forwardHeaders[key] = value;
+    }
+  });
+
   const res = await serverSideFetch({
     method,
     url: `/${options.join("/")}${request.nextUrl.search}`,
     body: method === "POST" ? await request.json() : undefined,
     config,
+    headers: forwardHeaders,
   });
 
   if (config.debug) console.log("#> proxyFunction", res);

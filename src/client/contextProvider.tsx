@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import {
   IAuthContext,
   IAuthContextOptions,
@@ -32,6 +32,15 @@ const AuthContextProvider = <IU,>({
   const [user, setUser] = useState<IU | {}>({});
 
   const router = useRouter();
+  const customHeaders = useRef<Record<string, string>>({});
+
+  const setHeader = useCallback((key: string, value: string) => {
+    customHeaders.current[key] = value;
+  }, []);
+
+  const removeHeader = useCallback((key: string) => {
+    delete customHeaders.current[key];
+  }, []);
 
   // POST /session/login
   const loginRoute = routePrefix + "/login";
@@ -133,32 +142,46 @@ const AuthContextProvider = <IU,>({
 
   const get = async <T,>({
     url,
+    headers,
   }: {
     url: string;
+    headers?: Record<string, string>;
   }): Promise<Result<T, BaseError>> => {
-    return clientSideFetch({ url: `${proxyRoute}${url}` });
+    return clientSideFetch({
+      url: `${proxyRoute}${url}`,
+      headers: { ...customHeaders.current, ...headers },
+    });
   };
 
   const post = async <T,>({
     url,
     body,
+    headers,
   }: {
     url: string;
     body: object;
+    headers?: Record<string, string>;
   }): Promise<Result<T, BaseError>> => {
     return clientSideFetch({
       method: "POST",
       url: `${proxyRoute}${url}`,
       body,
+      headers: { ...customHeaders.current, ...headers },
     });
   };
 
   const del = async <T,>({
     url,
+    headers,
   }: {
     url: string;
+    headers?: Record<string, string>;
   }): Promise<Result<T, BaseError>> => {
-    return clientSideFetch({ method: "DELETE", url: `${proxyRoute}${url}` });
+    return clientSideFetch({
+      method: "DELETE",
+      url: `${proxyRoute}${url}`,
+      headers: { ...customHeaders.current, ...headers },
+    });
   };
 
   /**
@@ -327,6 +350,8 @@ const AuthContextProvider = <IU,>({
     get,
     post,
     del,
+    setHeader,
+    removeHeader,
     /* upload, */
   };
 

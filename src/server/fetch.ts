@@ -23,7 +23,7 @@ export const serverSideFetch = async <T>({
 } & Omit<RequestInit, "body" | "method">): Promise<Result<T, BaseError>> => {
   const headers = new Headers({
     "Content-Type": "application/json",
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   });
 
   const session = await getSession();
@@ -39,8 +39,8 @@ export const serverSideFetch = async <T>({
 
   const opts: RequestInit = {
     method,
-    headers,
     ...options,
+    headers,
   };
 
   try {

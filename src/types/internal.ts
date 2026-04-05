@@ -30,13 +30,16 @@ export interface IAuthContext<U> {
   oAuth: (data: IOAuthData) => Promise<string>;
   logout: () => Promise<string>;
   refreshUser: (force?: boolean) => Promise<void>;
-  get: <T>(props: { url: string }) => Promise<Result<T, BaseError>>;
+  get: <T>(props: { url: string; headers?: Record<string, string> }) => Promise<Result<T, BaseError>>;
   post: <T>(props: {
     url: string;
     body: object;
+    headers?: Record<string, string>;
   }) => Promise<Result<T, BaseError>>;
-  del: <T>(props: { url: string }) => Promise<Result<T, BaseError>>;
-  /* 
+  del: <T>(props: { url: string; headers?: Record<string, string> }) => Promise<Result<T, BaseError>>;
+  setHeader: (key: string, value: string) => void;
+  removeHeader: (key: string) => void;
+  /*
     upload: <T, U = any>(
         url: string,
         formName: string,
