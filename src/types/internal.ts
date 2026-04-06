@@ -39,6 +39,11 @@ export interface IAuthContext<U> {
   del: <T>(props: { url: string; headers?: Record<string, string> }) => Promise<Result<T, BaseError>>;
   setHeader: (key: string, value: string) => void;
   removeHeader: (key: string) => void;
+  augmentToken: (opts: {
+    url: string;
+    method?: "GET" | "POST" | "DELETE";
+    body?: object;
+  }) => Promise<Result<any, BaseError>>;
   /*
     upload: <T, U = any>(
         url: string,

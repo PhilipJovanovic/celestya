@@ -18,10 +18,12 @@ const rHandler: RouteHandler = {
   },
   POST: {
     login: ({ request, config }) => login(request, config),
+    augment: ({ request, config }) => augment(request, config),
     proxy: ({ request, config, options }) =>
       proxyFunction("POST", request, config, options),
   },
   DELETE: {
+    augment: ({ request, config }) => augment(request, config),
     proxy: ({ request, config, options }) =>
       proxyFunction("DELETE", request, config, options),
   },
@@ -243,4 +245,35 @@ async function proxyFunction(
   }
 
   return Response.json(res.value);
+}
+
+async function augment(request: NextRequest, config: IConfig) {
+  const { url, method, body } = await request.json();
+
+  const res = await serverSideFetch<{ token: string }>({
+    method: method || "POST",
+    url,
+    body,
+    config,
+  });
+
+  if (config.debug) console.log("#> augment", res);
+  if (res.isErr()) {
+    return Response.json(res.error);
+  }
+
+  // Update iron session with the new JWT
+  const session = await getSession();
+  const dec = jwtDecode<any>(res.value.data.token);
+  session.token = {
+    jwt: res.value.data.token,
+    refresh: session.token?.refresh || "",
+    decoded: dec,
+  };
+
+  // Clear cached user so it gets refetched
+  session.user = undefined;
+  await session.save();
+
+  return Response.json({ data: "ok" });
 }

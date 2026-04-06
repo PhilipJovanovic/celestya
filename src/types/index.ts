@@ -29,6 +29,16 @@ export interface IConfig {
   apiUrl: string;
   userEndpoint: string;
   debug?: boolean;
+  /**
+   * Map of cookie names to HTTP header names.
+   * When set, serverSideFetch will read these cookies server-side and
+   * forward their values as the corresponding headers to the backend.
+   * Useful for forwarding client-side state (e.g. selected channel) during SSR.
+   *
+   * @example
+   * cookieHeaders: { 'w1nter-editor': 'X-Editor-Channel' }
+   */
+  cookieHeaders?: Record<string, string>;
 }
 export type Session<U = DefaultUser> = IronSession<ServerSideSession<U>>;
 

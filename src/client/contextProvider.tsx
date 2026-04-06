@@ -334,6 +334,24 @@ const AuthContextProvider = <IU,>({
         }
     } */
 
+  const augmentToken = async ({
+    url,
+    method = "POST",
+    body,
+  }: {
+    url: string;
+    method?: "GET" | "POST" | "DELETE";
+    body?: object;
+  }) => {
+    const res = await clientSideFetch({
+      method: "POST",
+      url: `${routePrefix}/augment`,
+      body: { url, method, body },
+    });
+    if (res.isOk()) await refreshUser(true);
+    return res;
+  };
+
   useEffect(() => {
     if (!ready) refreshUser();
   }, []);
@@ -352,6 +370,7 @@ const AuthContextProvider = <IU,>({
     del,
     setHeader,
     removeHeader,
+    augmentToken,
     /* upload, */
   };
 

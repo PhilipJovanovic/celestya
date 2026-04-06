@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { IConfig } from "../types";
 import { BaseError, err, ok, Result, Success } from "../types/response";
 import { getSession } from "./session";
@@ -25,6 +26,25 @@ export const serverSideFetch = async <T>({
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   });
+
+  // Forward configured cookies as headers (for SSR)
+  if (config.cookieHeaders) {
+    try {
+      const cookieStore = await cookies();
+      for (const [cookieName, headerName] of Object.entries(
+        config.cookieHeaders
+      )) {
+        // Don't overwrite if header was already passed explicitly
+        if (headers.has(headerName)) continue;
+        const value = cookieStore.get(cookieName)?.value;
+        if (value) headers.set(headerName, value);
+      }
+    } catch (e) {
+      // cookies() throws outside of request context — safe to ignore
+      if (config.debug)
+        console.log("#> cookieHeaders: cookies() unavailable", e);
+    }
+  }
 
   const session = await getSession();
 
