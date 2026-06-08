@@ -1,152 +1,270 @@
 # celestya
 
-Highly opinionated session management tool for NextJS Frontends
+Highly opinionated session & auth layer for **Next.js (App Router)** frontends. It pairs with a
+[`phi`](https://github.com/PhilipJovanovic/phi)-style backend: the frontend never holds tokens in
+JS — celestya keeps the JWT + refresh token in an encrypted `iron-session` cookie and ships a
+built-in proxy that attaches `Authorization: Bearer <jwt>` to every backend call and transparently
+refreshes on `401`.
 
-## How to use
+```
+browser ──/api/proxy/*──▶ celestya proxy (Next server) ──Bearer JWT──▶ your phi backend
+                              │ reads JWT from iron-session cookie
+                              │ on 401: POST /refresh, retry
+```
 
-Add environment vars (dont expose them publically!!)
+- **Client** (`celestya/client`): `AuthProvider`, `useAuth`, `APIWrapper`, `Logout`.
+- **Server** (`celestya`): `CelestyaProxy`, `getSession`, `serverSideFetch`, `serverAPIWrapper`.
+
+## Install
+
+```sh
+npm i celestya
+```
 
 ```bash
-//.env
-
-CELESTYA_SECRET=XXXXXX      // AT_LEAST_32_CHARACTERS
-CELESTYA_COOKIE_NAME=XXXX   // COOKIE_NAME
-CELESTYA_SECURE=true        // true / false
+# .env  — never expose these publicly
+CELESTYA_SECRET=<at-least-32-characters>   # iron-session encryption key
+CELESTYA_COOKIE_NAME=<your-app-cookie>     # session cookie name
+SECURE=true                                # secure cookie flag (set false for local http)
 ```
 
-Configure the api endpoints
+> Note: the secure-cookie flag is read from `SECURE`, not `CELESTYA_SECURE`. See [TODO.md](./TODO.md).
 
-```tsx
-// /src/app/api/[[...endpoint]]
+## Setup
 
-import { API_URL, HOST } from "@/config/env";
-import { IConfig, IRequestOptions, Proxy } from "celestya";
+### 1. The proxy route
 
-const config: IConfig = {
-    host: HOST || "missing-host",
-    route: "/api",
-    apiUrl: API_URL || "missing-api-url",
-    userEndpoint: "/user",
+Create a catch-all route. `CelestyaProxy(config)` returns the `GET`/`POST`/`DELETE` handlers and
+owns all `/api/*` auth + proxy traffic. Export `config` too — server components reuse it.
+
+```ts
+// src/app/api/[[...endpoint]]/route.ts
+import { CelestyaProxy, IConfig } from "celestya";
+
+export const config: IConfig = {
+  host: process.env.NEXT_PUBLIC_HOST!, // e.g. http://localhost:3000
+  route: "/api",                       // must match this route's folder
+  apiUrl: process.env.NEXT_PUBLIC_API!, // your backend base URL
+  userEndpoint: "/user",               // backend endpoint returning the current user
+  // debug: true,
+  // cookieHeaders: { "w1nter-editor": "X-Editor-Channel" }, // forward cookies as headers during SSR
 };
 
-export const POST = (req: any, opt: IRequestOptions) => Proxy("POST", req, opt, config);
-export const GET = (req: any, opt: IRequestOptions) => Proxy("GET", req, opt, config);
-export const DELETE = (req: any, opt: IRequestOptions) => Proxy("DELETE", req, opt, config);
+export const { GET, POST, DELETE } = CelestyaProxy(config);
 ```
 
-Configure the provider
+### 2. The provider
 
 ```tsx
-// /src/app/layout.tsx
+// src/app/layout.tsx
+import { AuthProvider } from "celestya/client";
 
-import { AuthProvider, Logout } from "celestya/client";
-
-export default function RootLayout({
-    children,
-}: {
-    children: React.ReactNode,
-}) {
-    return (
-        <html lang="en">
-            <body>
-                <AuthProvider>{children}</AuthProvider>
-            </body>
-        </html>
-    );
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
+    </html>
+  );
 }
 ```
 
-Use the getSession function in server components (keep in mind they dont revalidate often!)
+### 3. Protecting routes (middleware)
 
-```tsx
-// /src/app/navbar.tsx
+celestya stores the decoded JWT in the session, so middleware can check expiry without a network
+call and bounce to the refresh endpoint:
 
-import { getSession, /* Session */ } from "celestya";
+```ts
+// src/middleware.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { getSession } from "celestya";
 
-// Optionally provide a user object
-interface User {
-    email: string
-    name: string
+export async function middleware(req: NextRequest) {
+  const session = await getSession();
+  const { pathname } = req.nextUrl;
+
+  if (!session.token) {
+    return NextResponse.redirect(new URL(`/login?r=${pathname}`, req.url));
+  }
+
+  const exp = (session.token.decoded as any).exp;
+  const now = (Date.now() / 1000) | 0;
+  if (exp - now < 0) {
+    // expired -> refresh, then come back to `r`
+    return NextResponse.redirect(new URL(`/api/refresh?r=${pathname}`, req.url));
+  }
+
+  return NextResponse.next();
 }
 
-const Navbar = async () => {
-    // const session: Session<User> = await getSession(); <- optional
-    const session = await getSession<User>();
-
-    return <div>Welcome: {session.user?.name}</div>;
-};
-
-export default Navbar;
+export const config = { matcher: ["/dashboard/:path*"] };
 ```
 
-Use the apiFetch function in server components
+## Client usage
+
+`useAuth()` is the main hook (client components only):
 
 ```tsx
-// /src/app/navbar.tsx
+"use client";
+import { useAuth } from "celestya/client";
 
-import { apiFetch } from "celestya";
-import { config } from "@/app/api/[[...endpoint]]/route"
+function Profile() {
+  const { ready, isLoggedIn, user, get, post, oAuth, logout } = useAuth();
 
-// Optionally provide a user object
-interface User {
-    email: string
-    name: string
+  // proxied, authenticated calls — return a Result (see below)
+  const load = async () => {
+    const res = await get<Billing>({ url: "/user/billing" }); // -> GET /api/proxy/user/billing
+    if (res.isErr()) return console.error(res.error);
+    console.log(res.value.data);
+  };
+
+  // OAuth login: state = where to land after login
+  const login = async () => {
+    const dest = await oAuth({ oAuthUrl: "/oauth/twitch", state: "/dashboard" });
+    window.location.href = dest;
+  };
+
+  if (!ready) return null;
+  return isLoggedIn ? <button onClick={logout}>Logout</button> : <button onClick={login}>Login</button>;
 }
-
-const Navbar = async () => {
-    const user = await apiFetch("/user", {}, config)
-
-    return <div>Welcome: {session.user?.name}</div>;
-};
-
-export default Navbar;
 ```
 
+Full `useAuth()` surface:
 
-Use the other functions in client components
+| Member | Description |
+| ------ | ----------- |
+| `ready`, `isLoggedIn`, `user` | Auth state (user is fetched once on mount via `userEndpoint`) |
+| `login(data)` / `register(data)` | Credential login/register (POST `/api/login` / `/register`) |
+| `oAuth({ oAuthUrl, state, onErrorUrl? })` | Start an OAuth flow; returns the redirect URL |
+| `logout()` | Destroy the session |
+| `refreshUser(force?)` | Re-fetch the current user |
+| `get/post/del({ url, body?, headers? })` | Authenticated proxied calls; return `Result<T>` |
+| `setHeader(k,v)` / `removeHeader(k)` | Per-client custom headers added to every proxied call |
+| `augmentToken({ url, method?, body? })` | Swap the JWT for a new one (e.g. "act as" another account) |
+
+### Typed API wrapper
+
+Define your API once, get a typed hook:
 
 ```tsx
-// /src/app/page.tsx
+import { APIWrapper, type WrapperFunction } from "celestya/client";
 
-import { useAuth } from 'celestya/client'
+export const useAPI = APIWrapper((cb: WrapperFunction) => ({
+  commands: {
+    list: () => cb<Command[]>({ method: "GET", url: "/commands" }),
+    update: (id: string, body: object) => cb({ method: "POST", url: `/commands/${id}`, body }),
+  },
+}));
 
-// Optionally provide a user object
-interface User {
-    email: string
-    name: string
-}
-
-const Home = async () => {
-    const { ready, get } = useAuth()
-
-    const handleClick = () => {
-        try {
-            if (!ready) throw new Error('Not ready')
-            const res = await get('/user/billing')
-
-            console.log(res)
-        } catch (e) {
-            console.log(e)
-        }
-    }
-
-    return <Button onClick={handleClick}>Welcome: {session.user?.name}</div>;
-};
-
-export default Navbar;
+// component:
+const api = useAPI();
+const res = await api.commands.list();
 ```
 
-## How to upload to npm
+## Server usage
 
+In server components, read the session or call the backend directly (reusing `config`):
 
+```tsx
+import { getSession, serverSideFetch } from "celestya";
+import { config } from "@/app/api/[[...endpoint]]/route";
 
-## Todo
+export default async function Page() {
+  const session = await getSession<User>();          // { user?, token? }
+  const res = await serverSideFetch<User>({ url: "/user", config });
+  if (res.isErr()) return <div>error</div>;
+  return <div>Welcome {res.value.data.name}</div>;
+}
+```
 
-- [x]: Change returns at error
-- [x]: GET request with auth
-- [x]: POST request with auth
-- [x]: Fix issue with getSession serverside and config set at layout (If used at api/\_/route.tsx)
-- [x]: Fix issue with api endpoints if no layout has been loaded (if accessing api directly)
-- [X]: Refresh logic
-- [X]: Fix Response types
-- [ ]: Upload request with worker as helper (?)
+`serverAPIWrapper(wrapper, config)` is the server-side counterpart to `APIWrapper`.
+
+## The backend contract
+
+This is the opinionated part. celestya talks to your backend over a small, fixed contract. A
+`phi` backend satisfies it almost for free, because the envelopes line up 1:1:
+
+- **Success** responses are `{ "data": <payload> }` — exactly `phi.Response.JSON(...)`.
+- **Error** responses are `{ "error": "...", "message": "..." }` — exactly `phi.Error`. celestya
+  treats any body with an `error` field as a failure (`Result.isErr()`).
+- A **`401`** on a proxied call triggers celestya's refresh-then-retry.
+
+### Endpoints your backend must expose
+
+| Endpoint | Method | celestya sends | backend returns |
+| -------- | ------ | -------------- | --------------- |
+| `userEndpoint` (e.g. `/user`) | GET | `Authorization: Bearer <jwt>` | `{ "data": <user> }` |
+| `/refresh` | POST | `{ "refreshToken": "<token>" }` | `{ "data": { "token": "<new jwt>" } }` |
+| `<oAuthUrl>` (e.g. `/oauth/twitch`) | GET | `?returnUrl=<host>/api/oauth_callback` | `{ "data": "<provider auth url>" }` |
+| `<oAuthUrl>` provider redirect | — | (provider calls `returnUrl`) | redirect to `returnUrl?token=<jwt>&refresh=<token>&state=<state>` |
+| `/login` (optional) | POST | the credentials body | `{ "data": { "token": "<jwt>", "refresh": "<token>" } }` |
+| any protected route | ANY | `Authorization: Bearer <jwt>` | any `{ "data": ... }` |
+
+### JWT requirements
+
+- Algorithm **HS256**, signed with a secret shared with the backend (`JWT_SECRET`). celestya only
+  *decodes* the JWT (never verifies) — the backend verifies it via `phi/jwtauth.Verifier` +
+  `middleware.JWTAuth`.
+- Must include an **`exp`** claim (middleware checks it client-side) and an identity claim the
+  backend reads (w1nterbot uses **`jti`** = user id; `middleware.GetUserID` reads it).
+
+### Refresh tokens
+
+- Opaque random string, issued alongside the JWT (OAuth callback / login), stored in the backend DB
+  with an expiry and the user id.
+- On `POST /refresh`, the backend validates the refresh token and returns a **new JWT only** — the
+  refresh token itself is reused until it expires.
+
+### Minimal phi backend side
+
+```go
+// POST /refresh
+func refresh(w *phi.Response, r *phi.Request) *phi.Error {
+    body, err := phi.Validate[RefreshBody](r) // { RefreshToken string `json:"refreshToken,required"` }
+    if err != nil { return err }
+
+    rt, e := db.FindOne[RefreshToken]("refreshtokens", bson.M{"token": body.RefreshToken})
+    if e != nil || time.Now().After(rt.ExpiresAt) { return phi.Unauthorized() }
+
+    token, _ := issueJWT(rt.UserID.Hex()) // HS256, claims: jti, exp, iss, sub
+    return w.JSON(map[string]string{"token": token}) // -> { "data": { "token": ... } }
+}
+```
+
+> `augmentToken` (client) → `POST /api/augment` → backend returns `{ "data": { "token": <jwt> } }`;
+> celestya swaps the session JWT and clears the cached user. Used for "act as another account"
+> (w1nterbot's editor switch via the `as` claim).
+
+## Reference
+
+### `IConfig`
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `host` | string | Public origin of the Next app (for building redirect URLs) |
+| `route` | string | The proxy mount path; must match the route folder (e.g. `/api`) |
+| `apiUrl` | string | Backend base URL |
+| `userEndpoint` | string | Backend endpoint returning the current user |
+| `debug?` | boolean | Verbose proxy logging |
+| `cookieHeaders?` | `Record<string,string>` | Map cookie → header; forwarded to the backend during SSR |
+
+### Result type
+
+`get/post/del`, `serverSideFetch` and the wrappers return a `Result<T>`:
+
+```ts
+const res = await get<User>({ url: "/user" });
+if (res.isErr()) { /* res.error: { error, message } */ }
+else { /* res.value.data: User */ }
+```
+
+### Proxy endpoints (handled by `CelestyaProxy`)
+
+`GET /api/{user,refresh,logout,oauth,oauth_callback,debug}`, `POST /api/{login,augment}`,
+`{GET,POST,DELETE} /api/proxy/*` (everything under `/proxy` is forwarded to the backend with the
+bearer token attached).
+
+## License
+
+ISC.
