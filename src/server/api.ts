@@ -10,7 +10,7 @@ const rHandler: RouteHandler = {
     user: ({ request, config }) => getUser(request, config),
     refresh: ({ request, config }) => refresh(request, config),
     logout: ({ config }) => logout(config),
-    debug: () => debug(),
+    debug: ({ config }) => debug(config),
     oauth: ({ request, config }) => oauth(request, config),
     oauth_callback: ({ request, config }) => oauth_callback(request, config),
     proxy: ({ request, config, options }) =>
@@ -195,7 +195,16 @@ async function logout(config: IConfig) {
   });
 }
 
-async function debug() {
+async function debug(config: IConfig) {
+  // The debug endpoint dumps the full session (incl. jwt + refresh token).
+  // Only expose it when debugging is explicitly enabled.
+  if (!config.debug) {
+    return Response.json(
+      { error: "NOT_FOUND", message: "not found" },
+      { status: 404 }
+    );
+  }
+
   return Response.json(await getSession());
 }
 

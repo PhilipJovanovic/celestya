@@ -5,9 +5,8 @@ contract across `celestya`, `w1nterbot-frontend` and `w1nterbot`.
 
 ## Security
 
-- [ ] **`GET /api/debug` leaks the whole session.** `debug()` in `src/server/api.ts` returns
-      `getSession()` unconditionally — including `token.jwt` and `token.refresh`. It's registered
-      on every deployment, not gated. Gate it behind `config.debug` (or remove it in production).
+- [x] **`GET /api/debug` session leak — fixed.** `debug()` now returns 404 unless `config.debug`
+      is set, so it no longer dumps the session (jwt + refresh) on normal deployments.
 
 - [ ] **Refresh token never rotates.** `attemptTokenRefresh` keeps the same refresh token until it
       expires; the backend `/refresh` only returns a new JWT. Consider rotating the refresh token
