@@ -52,8 +52,8 @@ The backend-side celestya logic splits in two:
   and build the `oauth_callback` redirect (`?token=&refresh=&state=`). This is **not** middleware —
   it's handlers + a storage concern. Forcing it into a middleware is the wrong shape.
 
-- [ ] **Proposed:** a small Go companion package (e.g. `go.philip.id/celestya-go` or a
-      `phi/celestya` subpackage) providing:
+- [x] **Built:** `go.philip.id/celestya-go` (v0.1.0) — standalone, framework-agnostic (net/http,
+      zero deps), https://github.com/PhilipJovanovic/celestya-go . Provides:
   - `IssueJWT(userID string, opts...) (string, error)` — produces the celestya claim shape.
   - a `RefreshStore` **interface** (Save / Find / Delete / Rotate) so it's DB-agnostic (mongopiet or
     anything else plugs in).
